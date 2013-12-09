@@ -50,7 +50,7 @@ module Bosh::Stemcell
 
     class CloudStack < Base
       def initialize
-        super(name: 'cloudstack', hypervisor: 'kvm', default_disk_size: 2048)
+        super(name: 'cloudstack', hypervisor: 'kvm', default_disk_size: 10240)
       end
     end
   end

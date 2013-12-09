@@ -5,8 +5,7 @@
 set -e
 
 base_dir=$(readlink -nf $(dirname $0)/../..)
-source $base_dir/lib/prelude_apply.bash
+source $base_dir/lib/prelude_config.bash
 
-pushd $work
-tar zcf stemcell/image root.img
-popd
+assert_available qemu-img
+persist_value stemcell_image_name

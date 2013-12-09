@@ -1,7 +1,16 @@
 # Copyright (c) 2009-2013 VMware, Inc.
 # Copyright (c) 2012 Piston Cloud Computing, Inc.
-
+require 'sinatra'
 module Bosh::CloudStackCloud
+
+  class StemcellServer < Sinatra::Base
+    disable :logging
+    set :server, 'webrick' # thin cannnot serve large files
+    get "/stemcell.img" do
+      send_file(settings.stemcell_path)
+    end
+  end
+
   ##
   # BOSH CloudStack CPI
   class Cloud < Bosh::Cloud
@@ -82,39 +91,54 @@ module Bosh::CloudStackCloud
     # @option stemcell_properties [optional, String] ramdisk_file Name of the
     #   ramdisk image file provided at the stemcell archive
     # @return [String] CloudStack image UUID of the stemcell
-    def create_stemcell(image_path, stemcell_properties)
+    def create_stemcell(image_path, cloud_properties)
       with_thread_name("create_stemcell(#{image_path}...)") do
-        creator = StemcellCreator.new(@default_zone, stemcell_properties, self)
-
+        pid = nil
         begin
-          # These three variables are used in 'ensure' clause
-          instance = nil
-          volume = nil
+          Dir.mktmpdir do |tmp_dir|
+            @logger.info("Creating new image...")
 
-          # 1. Create and mount new EBS volume (10GB default)
-          disk_size = stemcell_properties["disk"] || (1024 * 10)
-          volume_id = create_disk(disk_size, current_vm_id)
-          volume = @compute.volumes.get(volume_id)
-          instance = @compute.servers.get(current_vm_id)
+            architecture_bit = {"x86" => "32", "x86_64" => "64"}[cloud_properties["architecture"]]
+            ostype = @compute.ostypes.find do |ostype|
+              ostype.description == "Ubuntu 10.04 (64-bit)"
+            end
 
-          device_name = attach_volume(instance, volume)
-          device_name = find_volume_device(device_name)
+            image_params = {
+              :display_text => "#{cloud_properties["name"]} #{cloud_properties["version"]}",
+              :name => "BOSH-#{SecureRandom.hex(8)}", # less than 32 characters
+              :os_type_id => ostype.id,
+              :zone_id => @default_zone.id,
+              :hypervisor => "KVM",
+              :format => cloud_properties["disk_format"].upcase,
+            }
 
-          logger.info("Creating stemcell with: '#{volume.id}' and '#{stemcell_properties.inspect}'")
-          creator.create(volume, device_name, image_path).id
+            if cloud_properties["image_location"]
+              @logger.info("Using remote image from `#{cloud_properties["image_location"]}'...")
+              image_params[:url] = cloud_properties["image_location"]
+            else
+              @logger.info("Extracting stemcell file to `#{tmp_dir}'...")
+              unpack_image(tmp_dir, image_path)
+              image_params[:url] = "http://153.149.28.253/stemcell.img"
+            end
 
+            pid = fork do
+              StemcellServer.set(stemcell_path: File.join(tmp_dir, "root.img"))
+              StemcellServer.run!(bind: "0.0.0.0", port: 80)
+            end
+            sleep 5
+            # Upload image using Glance service
+            @logger.debug("Using image parms: `#{image_params.inspect}'")
+            image = @compute.images.new(image_params)
+            with_compute { image.register }
+            @logger.info("Creating new image...")
+            wait_resource(image, :"download complete", :status)
+            image.id.to_s
+          end
         rescue => e
           @logger.error(e)
           raise e
         ensure
-          if instance && volume
-            begin
-              detach_volume(instance, volume)
-            rescue Bosh::Clouds::CloudError => e
-              @logger.info("Volume has been detached already")
-            end
-            delete_disk(volume.id)
-          end
+          Process.kill 9, pid if pid
         end
       end
     end

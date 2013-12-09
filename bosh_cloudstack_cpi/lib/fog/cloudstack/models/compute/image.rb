@@ -67,21 +67,6 @@ module Fog
           true
         end
 
-        def register
-          requires :display_text, :format, :hypervisor, :name, :os_type_id, :url, :zone_id
-          options = {
-              'displaytext' => display_text,
-              'format' => format,
-              'hypervisor' => hypervisor,
-              'name' => name,
-              'ostypeid' => os_type_id,
-              'url' => url,
-              'zoneid' => zone_id,
-              'isfeatured' => is_featured
-          }
-          data = service.register_template(options)
-          merge_attributes(data['registertemplateresponse']['template'][0])
-        end
       end # Server
     end # Cloudstack
   end # Compute

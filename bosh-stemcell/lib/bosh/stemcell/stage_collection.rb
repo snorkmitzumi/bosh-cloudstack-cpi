@@ -179,6 +179,7 @@ module Bosh::Stemcell
         # Image/bootloader
         :image_create,
         :image_install_grub,
+        :image_cloudstack_qcow2,
         :image_cloudstack_prepare_stemcell,
         # Final stemcell
         :stemcell_cloudstack

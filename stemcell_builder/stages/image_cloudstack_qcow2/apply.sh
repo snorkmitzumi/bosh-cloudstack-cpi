@@ -7,6 +7,5 @@ set -e
 base_dir=$(readlink -nf $(dirname $0)/../..)
 source $base_dir/lib/prelude_apply.bash
 
-pushd $work
-tar zcf stemcell/image root.img
-popd
+qemu-img convert -O qcow2 $work/${stemcell_image_name} $work/root.qcow2
+ln $work/root.qcow2 $work/root.img
