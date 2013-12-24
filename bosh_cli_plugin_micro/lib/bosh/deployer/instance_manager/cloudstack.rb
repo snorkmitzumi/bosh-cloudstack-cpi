@@ -35,8 +35,9 @@ module Bosh::Deployer
 
         uri = URI.parse(properties['registry']['endpoint'])
         user, password = uri.userinfo.split(':', 2)
+        user = properties['registry']['user'] || user
+        password = properties['registry']['password'] || password
         @registry_port = uri.port
-
         @registry_db = Tempfile.new('bosh_registry_db')
         @registry_connection_settings = {
             'adapter' => 'sqlite',
@@ -145,9 +146,7 @@ module Bosh::Deployer
 
       def service_ip
         server = cloud.compute.servers.get(state.vm_cid)
-
         ip = server.nics.first['ipaddress']
-
         err 'Unable to discover service ip' if ip.nil?
         ip
       end

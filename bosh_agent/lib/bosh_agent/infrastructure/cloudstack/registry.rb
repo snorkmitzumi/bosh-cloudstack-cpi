@@ -41,7 +41,7 @@ module Bosh::Agent
       def get_settings
         @registry_endpoint ||= get_registry_endpoint
         url = "#{@registry_endpoint}/instances/#{get_server_name}/settings"
-        raw_response = get_uri(url)
+        raw_response = get_uri(url, get_registry_value("user"), get_registry_value("password"))
 
         registry_data = Yajl::Parser.parse(raw_response)
         unless registry_data.is_a?(Hash) && registry_data.has_key?("settings")
@@ -120,7 +120,7 @@ module Bosh::Agent
       # @param [String] endpoint Bosh registry endpoint
       # @return [String] Bosh registry hostname
       def extract_registry_hostname(endpoint)
-        match = endpoint.match(%r{https*://([^:]+):})
+        match = endpoint.match(%r{https?://(?:.*@)?([^:]+):})
         unless match && match.size == 2
           raise LoadSettingsError, "Cannot extract Bosh registry hostname from #{endpoint}"
         end
@@ -145,8 +145,20 @@ module Bosh::Agent
       # @param [String] endpoint Bosh registry endpoint
       # @return [String] Bosh registry endpoint
       def inject_registry_ip_address(ip, endpoint)
-        endpoint.sub(%r{//[^:]+:}, "//#{ip}:")
+        endpoint.sub(%r{//(.*@)?[^:]+:}, "//\\1#{ip}:")
       end
+
+      ##
+      # Gets the Bosh registry value by given key name from CloudStack user data
+      #
+      # @return [String] Bosh registry value
+      def get_registry_value(key)
+        user_data = get_user_data
+        if user_data.has_key?("registry") && user_data["registry"].has_key?(key)
+          user_data["registry"][key]
+        end
+      end
+
 
       ##
       # Gets the CloudStack user data. First we try to get it from the CloudStack user data endpoint, if we fail,
@@ -188,14 +200,19 @@ module Bosh::Agent
       # Sends GET request to an specified URI.
       #
       # @param [String] uri URI to request
+      # @param [String] authorization Authorization to request
       # @return [String] Response body
-      def get_uri(uri)
+      def get_uri(uri, user = nil, password = nil)
         client = HTTPClient.new
         client.send_timeout = HTTP_API_TIMEOUT
         client.receive_timeout = HTTP_API_TIMEOUT
         client.connect_timeout = HTTP_CONNECT_TIMEOUT
 
         headers = {"Accept" => "application/json"}
+        if user && password
+          auth = Base64.encode64("#{user}:#{password}").gsub("\n", '')
+          headers["Authorization"] = "Basic #{auth}"
+        end
         response = client.get(uri, {}, headers)
         unless response.status == 200
           raise LoadSettingsError, "Endpoint #{uri} returned HTTP #{response.status}"

@@ -41,7 +41,9 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
   def user_data(unique_name, nameserver = nil, openssh = false)
     user_data = {
       "registry" => {
-          "endpoint" => "http://registry:3333"
+          "endpoint" => "http://registry:3333",
+          "user" => "johndoe",
+          "password" => "c1oudc0w"
       },
       "server" => {
           "name" => "vm-#{unique_name}"

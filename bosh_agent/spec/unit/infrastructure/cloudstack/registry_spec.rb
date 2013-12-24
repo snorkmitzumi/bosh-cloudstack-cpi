@@ -50,10 +50,27 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
     it "should get settings from Bosh registry" do
       Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_registry_endpoint)
           .and_return("http://registry_endpoint")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_user_data)
+          .and_return(user_data)
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_server_name)
           .and_return("vm-name")
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_uri)
-          .with("http://registry_endpoint/instances/vm-name/settings")
+          .with("http://registry_endpoint/instances/vm-name/settings", nil, nil)
+          .and_return(settings)
+
+      settings = Bosh::Agent::Infrastructure::Cloudstack::Registry.get_settings
+      settings.should == settings_json
+    end
+
+    it "should get settings from Bosh registry with credentials" do
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_registry_endpoint)
+          .and_return("http://registry_endpoint")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_user_data)
+          .and_return(user_data.merge({"registry" => {"user" => "johndoe", "password" => "c1oudc0w"}}))
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_server_name)
+          .and_return("vm-name")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_uri)
+          .with("http://registry_endpoint/instances/vm-name/settings", "johndoe", "c1oudc0w")
           .and_return(settings)
 
       settings = Bosh::Agent::Infrastructure::Cloudstack::Registry.get_settings
@@ -63,6 +80,8 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
     it "should raise exception when response from Bosh registry is invalid" do
       Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_registry_endpoint)
           .and_return("http://registry_endpoint")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_user_data)
+          .and_return(user_data)
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_server_name)
           .and_return("vm-name")
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_uri)
@@ -76,6 +95,8 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
     it "should raise exception when settings from Bosh registry are invalid" do
       Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_registry_endpoint)
           .and_return("http://registry_endpoint")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_user_data)
+          .and_return(user_data)
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_server_name)
           .and_return("vm-name")
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_uri)
@@ -89,6 +110,8 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
     it "should raise a LoadSettingsError exception when cannot parse settings" do
       Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_registry_endpoint)
           .and_return("http://registry_endpoint")
+      Bosh::Agent::Infrastructure::Cloudstack::Registry.stub(:get_user_data)
+          .and_return(user_data)
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_server_name)
           .and_return("vm-name")
       Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:get_uri)
@@ -186,6 +209,17 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
         registry_endpoint.should == "http://4.3.2.1:25777"
       end
 
+      it "should return Bosh registry endpoint as an IP address with credentials in endpoint URL" do
+        user_data_with_credentials = user_data_with_dns
+        user_data_with_credentials["registry"]["endpoint"] = "http://johndoe:c1oudc0w@registry_endpoint:25777"
+        Bosh::Agent::Infrastructure::Cloudstack::Registry.should_receive(:lookup_registry_ip_address)
+            .with("registry_endpoint", ["10.11.12.13", "14.15.16.17"])
+            .and_return("4.3.2.1")
+
+        registry_endpoint = Bosh::Agent::Infrastructure::Cloudstack::Registry.lookup_registry_endpoint(user_data_with_credentials)
+        registry_endpoint.should == "http://johndoe:c1oudc0w@4.3.2.1:25777"
+      end
+
       it "should not lookup for an IP address when Bosh registry endpoint is an IP address" do
         user_data_with_ip = user_data_with_dns
         user_data_with_ip["registry"]["endpoint"] = "http://1.2.3.4:25777"
@@ -193,6 +227,15 @@ describe Bosh::Agent::Infrastructure::Cloudstack::Registry do
 
         registry_endpoint = Bosh::Agent::Infrastructure::Cloudstack::Registry.lookup_registry_endpoint(user_data_with_ip)
         registry_endpoint.should == "http://1.2.3.4:25777"
+      end
+
+      it "should not lookup for an IP address when Bosh registry endpoint is an IP address and with credentials in endpoint URL" do
+        user_data_with_credentials = user_data_with_dns
+        user_data_with_credentials["registry"]["endpoint"] = "http://johndoe:c1oudc0w@10.1.1.1:25777"
+        Bosh::Agent::Infrastructure::Cloudstack::Registry.should_not_receive(:lookup_registry_ip_address)
+
+        registry_endpoint = Bosh::Agent::Infrastructure::Cloudstack::Registry.lookup_registry_endpoint(user_data_with_credentials)
+        registry_endpoint.should == "http://johndoe:c1oudc0w@10.1.1.1:25777"
       end
 
       it "should raise a LoadSettingsError exception when cannot lookup the hostname" do

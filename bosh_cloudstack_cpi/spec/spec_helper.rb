@@ -47,8 +47,8 @@ def make_cloud(options = nil)
   Bosh::CloudStackCloud::Cloud.new(options || mock_cloud_options)
 end
 
-def mock_registry(endpoint = 'http://registry:3333')
-  registry = double('registry', :endpoint => endpoint)
+def mock_registry(endpoint = 'http://registry:3333', user = "johndoe", password = "c1oudc0w")
+  registry = double('registry', :endpoint => endpoint, :user => user, :password => password)
   Bosh::Registry::Client.stub(:new).and_return(registry)
   registry
 end

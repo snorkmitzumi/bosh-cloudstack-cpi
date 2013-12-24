@@ -651,7 +651,11 @@ module Bosh::CloudStackCloud
     def user_data(server_name, network_spec, public_key = nil)
       data = {}
 
-      data["registry"] = { "endpoint" => @registry.endpoint }
+      data["registry"] = {
+        "endpoint" => @registry.endpoint,
+        "user" =>  @registry.user,
+        "password" =>  @registry.password,
+      }
       data["server"] = { "name" => server_name }
       data["openssh"] = { "public_key" => public_key } if public_key
 
