@@ -67,6 +67,25 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud.configure_networks("i-test", combined_network_spec)
   end
 
+  it "throw an exception while public IP not found" do
+    address = double("address", :id => "i-test", :virtual_machine_id => nil)
+    server = double("server", :id => "i-test", :name => "i-test", :addresses => [address], :zone_id => 'foobar-2a')
+    security_group = double("security_groups", :name => "default")
+
+    server.should_receive(:security_groups).and_return([security_group])
+    address.should_receive(:ip_address).and_return("10.10.10.1")
+
+    cloud = mock_cloud do |compute|
+      compute.servers.should_receive(:get).with("i-test").and_return(server)
+      compute.zones.should_receive(:get).with("foobar-2a").and_return(compute.zones[1])
+      compute.ipaddresses.should_receive(:find).and_return(nil)
+    end
+
+    expect {
+      cloud.configure_networks("i-test", combined_network_spec)
+    }.to raise_error Bosh::Clouds::CloudError
+  end
+
   it "forces recreation when security groups differ" do
     address = double("address")
     server = double("server", :id => "i-test", :name => "i-test", :addresses => [address], :zone_id => 'foobar-2a')
