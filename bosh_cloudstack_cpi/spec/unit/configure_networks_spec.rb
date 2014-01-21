@@ -67,6 +67,49 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud.configure_networks("i-test", combined_network_spec)
   end
 
+  it "configures network when using vip network with IP already associated to server" do
+    address = double("address", :id => "i-test", :virtual_machine_id => "i-test")
+    server = double("server", :id => "i-test", :name => "i-test", :addresses => [address], :zone_id => 'foobar-2a')
+    security_group = double("security_groups", :name => "default")
+
+    server.should_receive(:security_groups).and_return([security_group])
+    address.should_receive(:ip_address).and_return("10.10.10.1")
+    server.should_receive(:nics).and_return([{'id' => 'i-test', 'networkid' => 'i-test'}])
+
+    nat = double("nat")
+    nat.should_receive(:enable)
+    nat_job = double("nat_job")
+    nat.should_receive(:disable).and_return(nat_job)
+    nat_job.should_receive(:wait_for).and_return(cost_time_spec)
+
+    nat_params1 = {
+        :ip_address_id => address.id,
+    }
+
+    nat_params2 = {
+        :ip_address_id => address.id,
+        :virtual_machine_id => server.id,
+        :network_id => "i-test"
+    }
+
+    cloud = mock_cloud do |compute|
+      compute.servers.should_receive(:get).with("i-test").and_return(server)
+      compute.zones.should_receive(:get).with("foobar-2a").and_return(compute.zones[1])
+      compute.ipaddresses.should_receive(:find).and_return(address)
+      compute.nats.should_receive(:new).with(nat_params1).and_return(nat)
+      compute.nats.should_receive(:new).with(nat_params2).and_return(nat)
+    end
+
+    network_spec = { "network_a" => dynamic_network_spec, "network_b" => vip_network_spec }
+    old_settings = { "foo" => "bar", "networks" => network_spec }
+    new_settings = { "foo" => "bar", "networks" => network_spec }
+
+    @registry.should_receive(:read_settings).with("i-test").and_return(old_settings)
+    @registry.should_receive(:update_settings).with("i-test", new_settings)
+
+    cloud.configure_networks("i-test", combined_network_spec)
+  end
+
   it "throw an exception while public IP not found" do
     address = double("address", :id => "i-test", :virtual_machine_id => nil)
     server = double("server", :id => "i-test", :name => "i-test", :addresses => [address], :zone_id => 'foobar-2a')
