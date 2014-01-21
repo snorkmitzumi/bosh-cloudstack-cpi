@@ -181,7 +181,25 @@ describe Bosh::CloudStackCloud::Cloud do
   end
 
   it "removes floating ip from the server if vip network is gone" do
-    ## TODO
+    address = double("address", :id => "i-test", :virtual_machine_id => nil)
+    server = double("server", :id => "i-test", :name => "i-test", :addresses => [address], :zone_id => 'foobar-2a')
+    security_group = double("security_groups", :name => "default")
+
+    server.should_receive(:security_groups).and_return([security_group])
+    address.should_receive(:ip_address).and_return("10.10.10.1")
+
+    cloud = mock_cloud do |compute|
+      compute.servers.should_receive(:get).with("i-test").and_return(server)
+      compute.zones.should_receive(:get).with("foobar-2a").and_return(compute.zones[1])
+    end
+
+    old_settings = { "foo" => "bar", "networks" => combined_network_spec }
+    new_settings = { "foo" => "bar", "networks" => { "network_a" => dynamic_network_spec } }
+
+    @registry.should_receive(:read_settings).with("i-test").and_return(old_settings)
+    @registry.should_receive(:update_settings).with("i-test", new_settings)
+
+    cloud.configure_networks("i-test", "network_a" => dynamic_network_spec)
   end
 
   def mock_cloud_advanced
