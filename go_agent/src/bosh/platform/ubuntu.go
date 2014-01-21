@@ -5,7 +5,9 @@ import (
 	boshcmd "bosh/platform/commands"
 	boshdisk "bosh/platform/disk"
 	boshstats "bosh/platform/stats"
+	boshvitals "bosh/platform/vitals"
 	boshsettings "bosh/settings"
+	boshdir "bosh/settings/directories"
 	boshdirs "bosh/settings/directories"
 	boshsys "bosh/system"
 	"bytes"
@@ -26,8 +28,10 @@ type ubuntu struct {
 	formatter       boshdisk.Formatter
 	mounter         boshdisk.Mounter
 	compressor      boshcmd.Compressor
+	copier          boshcmd.Copier
 	diskWaitTimeout time.Duration
 	dirProvider     boshdirs.DirectoriesProvider
+	vitalsService   boshvitals.Service
 }
 
 func newUbuntuPlatform(
@@ -35,18 +39,21 @@ func newUbuntuPlatform(
 	fs boshsys.FileSystem,
 	cmdRunner boshsys.CmdRunner,
 	diskManager boshdisk.Manager,
-	compressor boshcmd.Compressor,
 	dirProvider boshdirs.DirectoriesProvider,
 ) (platform ubuntu) {
 	platform.collector = collector
 	platform.fs = fs
 	platform.cmdRunner = cmdRunner
+	platform.dirProvider = dirProvider
+
 	platform.partitioner = diskManager.GetPartitioner()
 	platform.formatter = diskManager.GetFormatter()
 	platform.mounter = diskManager.GetMounter()
-	platform.compressor = compressor
 	platform.diskWaitTimeout = 3 * time.Minute
-	platform.dirProvider = dirProvider
+
+	platform.compressor = boshcmd.NewTarballCompressor(cmdRunner, fs)
+	platform.copier = boshcmd.NewCpCopier(cmdRunner, fs)
+	platform.vitalsService = boshvitals.NewService(collector, dirProvider)
 	return
 }
 
@@ -64,6 +71,18 @@ func (p ubuntu) GetStatsCollector() (statsCollector boshstats.StatsCollector) {
 
 func (p ubuntu) GetCompressor() (runner boshcmd.Compressor) {
 	return p.compressor
+}
+
+func (p ubuntu) GetCopier() (runner boshcmd.Copier) {
+	return p.copier
+}
+
+func (p ubuntu) GetDirProvider() (dirProvider boshdir.DirectoriesProvider) {
+	return p.dirProvider
+}
+
+func (p ubuntu) GetVitalsService() (service boshvitals.Service) {
+	return p.vitalsService
 }
 
 func (p ubuntu) SetupRuntimeConfiguration() (err error) {

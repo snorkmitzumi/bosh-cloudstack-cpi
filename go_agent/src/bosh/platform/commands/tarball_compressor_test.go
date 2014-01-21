@@ -15,7 +15,7 @@ func TestCompressFilesInDir(t *testing.T) {
 	dc := NewTarballCompressor(cmdRunner, fs)
 
 	srcDir := fixtureSrcDir(t)
-	tgzName, err := dc.CompressFilesInDir(srcDir, []string{"**/*.stdout.log", "*.stderr.log", "../some.config"})
+	tgzName, err := dc.CompressFilesInDir(srcDir)
 	assert.NoError(t, err)
 
 	defer os.Remove(tgzName)
@@ -43,13 +43,6 @@ func TestCompressFilesInDir(t *testing.T) {
 	content, err = fs.ReadFile(dstDir + "/other_logs/other_app.stdout.log")
 	assert.NoError(t, err)
 	assert.Contains(t, content, "this is other app stdout")
-
-	// file that is not matching filter
-	content, err = fs.ReadFile(dstDir + "/other_logs/other_app.stderr.log")
-	assert.Error(t, err)
-
-	content, err = fs.ReadFile(dstDir + "/../some.config")
-	assert.Error(t, err)
 }
 
 func TestDecompressFileToDir(t *testing.T) {
@@ -130,7 +123,7 @@ func createdTmpDir(t *testing.T, fs boshsys.FileSystem) string {
 func fixtureSrcDir(t *testing.T) string {
 	pwd, err := os.Getwd()
 	assert.NoError(t, err)
-	return filepath.Join(pwd, "..", "..", "..", "..", "fixtures", "test_get_files_in_dir")
+	return filepath.Join(pwd, "..", "..", "..", "..", "fixtures", "test_filtered_copy_to_temp")
 }
 
 func fixtureSrcTgz(t *testing.T) string {

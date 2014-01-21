@@ -95,54 +95,71 @@ module Bosh::Dev::Bat
         subject.should_receive(:run_bats)
         subject.deploy_microbosh_and_run_bats
       end
-
-      def self.it_cleans_up_after_rake_task(ignore_error = false)
-        it 'deletes the bat deployment, stemcell and then micro' do
-          bosh_cli_session
-            .should_receive(:run_bosh)
-            .with('delete deployment bat', ignore_failures: true)
-            .ordered
-
-          bosh_cli_session.should_receive(:run_bosh)
-            .with('delete stemcell stemcell-name 6', ignore_failures: true)
-            .ordered
-
-          bosh_cli_session
-            .should_receive(:run_bosh)
-            .with('micro delete', ignore_failures: true)
-            .ordered
-
-          begin
-            subject.deploy_microbosh_and_run_bats
-          rescue
-            raise unless ignore_error
-          end
-        end
-      end
-
-      context 'when running bats does not raise an error' do
-        before { subject.stub(:run_bats) }
-        it_cleans_up_after_rake_task
-
-        it 'does not raise an error' do
-          expect { subject.deploy_microbosh_and_run_bats }.to_not raise_error
-        end
-      end
-
-      context 'when running bats raises an error' do
-        before { subject.stub(:run_bats).and_raise(error) }
-        let(:error) { RuntimeError.new('error') }
-        it_cleans_up_after_rake_task(true)
-
-        it 're-raises bats error' do
-          expect { subject.deploy_microbosh_and_run_bats }.to raise_error(error)
-        end
-      end
     end
 
     describe '#run_bats' do
       before { Rake::Task.stub(:[]).with('bat').and_return(bat_rake_task) }
       let(:bat_rake_task) { double("Rake::Task['bat']", invoke: nil) }
+
+      describe 'targetting the micro' do
+        shared_examples_for 'a method that targets the micro correctly' do
+          it 'targets the micro with the correct username and password' do
+            expect(bosh_cli_session).to receive(:run_bosh).with(
+                                          "-u #{expected_username} -p #{expected_password} target director-hostname"
+                                        )
+
+            subject.run_bats
+          end
+        end
+
+        context 'when the environment does not specify a username or password' do
+          let(:expected_username) { 'admin' }
+          let(:expected_password) { 'admin' }
+
+          include_examples 'a method that targets the micro correctly'
+        end
+
+        context 'when the environment specifies a username' do
+          let(:expected_username) { 'username' }
+          let(:expected_password) { 'admin' }
+
+          before do
+            env['BOSH_USER'] = 'username'
+          end
+
+          include_examples 'a method that targets the micro correctly'
+        end
+
+        context 'when the environment specifies a password' do
+          let(:expected_username) { 'admin' }
+          let(:expected_password) { 'password' }
+
+          before do
+            env['BOSH_PASSWORD'] = 'password'
+          end
+
+          include_examples 'a method that targets the micro correctly'
+        end
+
+        context 'when the environment specifies both a password and password' do
+          let(:expected_username) { 'username' }
+          let(:expected_password) { 'password' }
+
+          before do
+            env['BOSH_USER'] = 'username'
+            env['BOSH_PASSWORD'] = 'password'
+          end
+
+          include_examples 'a method that targets the micro correctly'
+        end
+
+        it 'targets the director before writing the bosh manifest' do
+          expect(bosh_cli_session).to receive(:run_bosh).with(/target director-hostname/).ordered
+          expect(bat_deployment_manifest).to receive(:write).with(no_args).ordered
+
+          subject.run_bats
+        end
+      end
 
       it 'generates a bat manifest' do
         bat_deployment_manifest.should_receive(:write) do

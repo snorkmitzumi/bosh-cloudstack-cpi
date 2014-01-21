@@ -3,11 +3,6 @@ require 'bosh/dev/sandbox/main'
 
 module IntegrationExampleGroup
   def deploy_simple(options={})
-    no_track = options.fetch(:no_track, false)
-    manifest_hash = options.fetch(:manifest_hash, Bosh::Spec::Deployments.simple_manifest)
-
-    deployment_manifest = yaml_file('simple', manifest_hash)
-
     run_bosh("target http://localhost:#{current_sandbox.director_port}")
     run_bosh('login admin admin')
 
@@ -15,10 +10,18 @@ module IntegrationExampleGroup
     run_bosh('upload release', work_dir: TEST_RELEASE_DIR)
 
     run_bosh("upload stemcell #{spec_asset('valid_stemcell.tgz')}")
+    deploy_simple_manifest(options)
+  end
 
+  def deploy_simple_manifest(options={})
+    manifest_hash = options.fetch(:manifest_hash, Bosh::Spec::Deployments.simple_manifest)
+    deployment_manifest = yaml_file('simple', manifest_hash)
     run_bosh("deployment #{deployment_manifest.path}")
+
+    no_track = options.fetch(:no_track, false)
     deploy_result = run_bosh("#{no_track ? '--no-track ' : ''}deploy")
     expect($?).to be_success
+
     deploy_result
   end
 
@@ -29,6 +32,9 @@ module IntegrationExampleGroup
       command = "bosh -n -c #{BOSH_CONFIG} #{cmd}"
       output = `#{command} 2>&1`
       if $?.exitstatus != 0 && !failure_expected
+        if output =~ /bosh (task \d+ --debug)/
+          puts run_bosh($1, options.merge(failure_expected: true)) rescue nil
+        end
         raise "ERROR: #{command} failed with #{output}"
       end
       output
@@ -50,7 +56,8 @@ module IntegrationExampleGroup
 
   # forcefully suppress raising on error...caller beware
   def expect_output(cmd, expected_output)
-    format_output(run_bosh(cmd, :failure_expected => true)).should == format_output(expected_output)
+    expect(format_output(run_bosh(cmd, :failure_expected => true))).
+      to eq(format_output(expected_output))
   end
 
   def get_vms
@@ -106,16 +113,16 @@ module IntegrationExampleGroup
         end
       end
 
-      unless example.example.metadata[:no_reset]
-        desc = example ? example.example.metadata[:description] : ''
+      unless example.metadata[:no_reset]
+        desc = example ? example.metadata[:description] : ''
         current_sandbox.reset(desc)
+        FileUtils.rm_rf(current_sandbox.cloud_storage_dir)
       end
     end
 
     base.after do |example|
-      desc = example ? example.example.metadata[:description] : ""
+      desc = example ? example.metadata[:description] : ""
       current_sandbox.save_task_logs(desc)
-      FileUtils.rm_rf(current_sandbox.cloud_storage_dir)
     end
   end
 end
