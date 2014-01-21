@@ -125,7 +125,7 @@ module Bosh::Deployer
       end
 
       def discover_bosh_ip
-        if exists?
+        if state.vm_cid
           server = cloud.compute.servers.get(state.vm_cid)
 
           floating_ip = cloud.compute.ipaddresses.find {

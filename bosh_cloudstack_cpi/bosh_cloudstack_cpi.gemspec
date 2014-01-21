@@ -1,7 +1,10 @@
-# -*- encoding: utf-8 -*-
+# coding: utf-8
+require File.expand_path('../lib/cloud/cloudstack/version', __FILE__)
+
 # Copyright (c) 2009-2013 VMware, Inc.
 # Copyright (c) 2012 Piston Cloud Computing, Inc.
-version = File.read(File.expand_path('../../BOSH_VERSION', __FILE__)).strip
+
+version = Bosh::CloudStackCloud::VERSION
 
 Gem::Specification.new do |s|
   s.name         = 'bosh_cloudstack_cpi'

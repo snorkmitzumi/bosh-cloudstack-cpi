@@ -15,7 +15,7 @@ module Bosh::Dev::Cloudstack
 
     def to_h
       result = {
-        'name' => "microbosh-cloudstack-#{net_type}",
+        'name' => director_name,
         'logging' => {
           'level' => 'DEBUG'
         },
@@ -34,18 +34,7 @@ module Bosh::Dev::Cloudstack
         },
         'cloud' => {
           'plugin' => 'cloudstack',
-          'properties' => {
-            'cloudstack' => {
-              'endpoint' => env['BOSH_CLOUDSTACK_ENDPOINT'],
-              'api_key' => env['BOSH_CLOUDSTACK_API_KEY'],
-              'secret_access_key' => env['BOSH_CLOUDSTACK_SECRET_ACCESS_KEY'],
-              'default_key_name' => 'jenkins',
-              'default_security_groups' => [],
-              'default_key_name' => env['BOSH_CLOUDSTACK_DEFAULT_KEY_NAME'],
-              'private_key' => env['BOSH_CLOUDSTACK_PRIVATE_KEY'],
-              'default_zone' => env['BOSH_CLOUDSTACK_DEFAULT_ZONE'],
-            }
-          }
+          'properties' => cpi_options,
         },
         'apply_spec' => {
           'agent' => {
@@ -56,17 +45,64 @@ module Bosh::Dev::Cloudstack
               'address' => env['BOSH_CLOUDSTACK_VIP_DIRECTOR_IP']
             }
           },
-          'properties' => {}
+          'properties' => {
+            'director' => {
+              'max_vm_create_tries' => 15
+            },
+          }
         }
       }
 
-      result['network']['ip'] = env['BOSH_CLOUDSTACK_MANUAL_IP'] if net_type == 'manual'
-
       result
+    end
+
+    def director_name
+      "microbosh-cloudstack-#{net_type}"
+    end
+
+    def cpi_options
+      {
+        'cloudstack' => {
+          'endpoint' => env['BOSH_CLOUDSTACK_ENDPOINT'],
+          'api_key' => env['BOSH_CLOUDSTACK_API_KEY'],
+          'secret_access_key' => env['BOSH_CLOUDSTACK_SECRET_ACCESS_KEY'],
+          'default_key_name' => 'jenkins',
+          'default_security_groups' => default_security_groups,
+          'private_key' => env['BOSH_CLOUDSTACK_PRIVATE_KEY'],
+          'default_zone' => env['BOSH_CLOUDSTACK_DEFAULT_ZONE'],
+          'state_timeout' => state_timeout,
+          'state_timeout_volume' => state_timeout_volume,
+        },
+        'registry' => {
+          'endpoint' => 'http://admin:admin@localhost:25889',
+          'user' => 'admin',
+          'password' => 'admin',
+        },
+      }
     end
 
     private
 
     attr_reader :env, :net_type
+
+    def default_security_groups
+      if env['BOSH_CLOUDSTACK_DEFAULT_SECURITY_GROUPS']
+        [env['BOSH_CLOUDSTACK_DEFAULT_SECURITY_GROUPS']]
+      else
+        []
+      end
+    end
+
+    def state_timeout
+      normalize_timeout(env['BOSH_CLOUDSTACK_STATE_TIMEOUT'])
+    end
+
+    def state_timeout_volume
+      normalize_timeout(env['BOSH_CLOUDSTACK_STATE_TIMEOUT_VOLUME'])
+    end
+
+    def normalize_timeout(value)
+      value.to_s.empty? ? 300 : value.to_i
+    end
   end
 end

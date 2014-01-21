@@ -23,7 +23,6 @@ module Bosh::Dev::Cloudstack
           'BOSH_CLOUDSTACK_API_KEY' => 'api_key',
           'BOSH_CLOUDSTACK_SECRET_ACCESS_KEY' => 'secret_access_key',
           'BOSH_CLOUDSTACK_DEFAULT_ZONE' => 'default_zone',
-          'BOSH_CLOUDSTACK_DEFAULT_KEY_NAME' => 'key_name',
           'BOSH_CLOUDSTACK_PRIVATE_KEY' => 'private_key_path',
         )
       end
@@ -51,22 +50,66 @@ cloud:
       endpoint: endpoint_url
       api_key: api_key
       secret_access_key: secret_access_key
-      default_key_name: key_name
+      default_key_name: jenkins
       private_key: private_key_path
       default_zone: default_zone
       default_security_groups: []
+      state_timeout: 300
+      state_timeout_volume: 300
+    registry:
+      endpoint: http://admin:admin@localhost:25889
+      user: admin
+      password: admin
 apply_spec:
   agent:
     blobstore:
       address: vip
     nats:
       address: vip
-  properties: {}
+  properties:
+    director:
+      max_vm_create_tries: 15
 YAML
 
         it 'generates the correct YAML' do
           expect(subject.to_h).to eq(Psych.load(expected_yml))
         end
+      end
+    end
+
+    its(:director_name) { should match(/microbosh-cloudstack-/) }
+
+    describe '#cpi_options' do
+      before do
+        env.merge!(
+          'BOSH_CLOUDSTACK_ENDPOINT' => 'fake-endpoint',
+          'BOSH_CLOUDSTACK_API_KEY' => 'fake-api-key',
+          'BOSH_CLOUDSTACK_SECRET_ACCESS_KEY' => 'fake-secret-access-key',
+          'BOSH_CLOUDSTACK_DEFAULT_SECURITY_GROUPS' => 'fake-default-security-groups',
+          'BOSH_CLOUDSTACK_DEFAULT_ZONE' => 'fake-default-zone',
+          'BOSH_CLOUDSTACK_PRIVATE_KEY' => 'fake-private-key-path',
+        )
+      end
+
+      it 'returns cpi options' do
+        expect(subject.cpi_options).to eq(
+          'cloudstack' => {
+            'endpoint' => 'fake-endpoint',
+            'api_key' => 'fake-api-key',
+            'secret_access_key' => 'fake-secret-access-key',
+            'default_key_name' => 'jenkins',
+            'default_security_groups' => ['fake-default-security-groups'],
+            'private_key' => 'fake-private-key-path',
+            'default_zone' => 'fake-default-zone',
+            'state_timeout' => 300,
+            'state_timeout_volume' => 300,
+          },
+          'registry' => {
+            'endpoint' => 'http://admin:admin@localhost:25889',
+            'user' => 'admin',
+            'password' => 'admin',
+          },
+        )
       end
     end
   end
