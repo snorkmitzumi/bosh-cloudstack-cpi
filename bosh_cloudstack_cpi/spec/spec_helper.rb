@@ -67,7 +67,7 @@ def mock_cloud(options = nil)
   disk_offerings = [double('disk_offer1', :name => 'disk_offer-10000', :id => 'disk_offer1', :disk_size => 10000)]
   networks = [double('net-1', :name => 'netname-1', :id => 'netid-1'), double('net-2', :name => 'netname-2', :id => 'netid-2')]
   jobs = double('jobs')
-
+  nats = double('nats')
   compute = double(Fog::Compute)
 
   compute.stub(:servers).and_return(servers)
@@ -82,6 +82,7 @@ def mock_cloud(options = nil)
   compute.stub(:disk_offerings).and_return(disk_offerings)
   compute.stub(:networks).and_return(networks)
   compute.stub(:jobs).and_return(jobs)
+  compute.stub(:nats).and_return(nats)
 
   Fog::Compute.stub(:new).and_return(compute)
 
