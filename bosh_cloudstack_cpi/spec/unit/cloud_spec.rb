@@ -30,6 +30,25 @@ describe Bosh::CloudStackCloud::Cloud do
 
       expect(cloud.compute).to eql(compute)
     end
+
+    context 'with connection options' do
+      let(:connection_options) {
+        JSON.generate({
+                          'ssl_verify_peer' => false,
+                      })
+      }
+
+      it 'should add optional options to the Fog connection' do
+        cloud_options['cloudstack']['connection_options'] = connection_options
+        Fog::Compute.stub(:new).with(fog_cloudstack_parms).and_return(compute)
+        zone = double('zone', :network_type => :advanced)
+        compute.stub_chain(:zones, :find).and_return(zone)
+        cloud = Bosh::Clouds::Provider.create(:cloudstack, cloud_options)
+
+        expect(cloud.compute).to eql(compute)
+      end
+    end
+
   end
 
   describe "creating via provider" do
