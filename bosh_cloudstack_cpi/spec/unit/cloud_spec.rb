@@ -10,6 +10,15 @@ describe Bosh::CloudStackCloud::Cloud do
     it "can be created using Bosh::Cloud::Provider" do
       compute = double('compute')
       Fog::Compute.stub(:new).and_return(compute)
+      compute.stub_chain(:zones, :find).and_return(nil)
+      expect {
+        Bosh::Clouds::Provider.create(:cloudstack, mock_cloud_options)
+      }.to raise_error(Bosh::Clouds::CloudError)
+    end
+
+    it "created using Bosh::Cloud::Provider & zone should not be nil" do
+      compute = double('compute')
+      Fog::Compute.stub(:new).and_return(compute)
       zone = double('zone', :network_type => :basic)
       compute.stub_chain(:zones, :find).and_return(zone)
       cloud = Bosh::Clouds::Provider.create(:cloudstack, mock_cloud_options)
