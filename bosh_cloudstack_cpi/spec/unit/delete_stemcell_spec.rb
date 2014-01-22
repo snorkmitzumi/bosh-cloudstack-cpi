@@ -17,4 +17,13 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud.delete_stemcell("i-foo")
   end
 
+  it "should do nothing if stemcell_id not found when delete stemcell" do
+    image = double("image", :id => "i-foo", :name => "i-foo", :properties => {})
+
+     cloud = mock_cloud do |compute|
+       compute.should_receive(:images).and_return([image])
+     end
+
+     cloud.delete_stemcell("i-bar")
+  end
 end
