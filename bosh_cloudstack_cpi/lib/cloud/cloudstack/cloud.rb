@@ -138,9 +138,13 @@ module Bosh::CloudStackCloud
       with_thread_name("delete_stemcell(#{stemcell_id})") do
         @logger.info("Deleting stemcell `#{stemcell_id}'...")
         images = with_compute { @compute.images.select { |image| image.id == stemcell_id } }
-        images.each do |image|
-          with_compute { image.destroy }
-          @logger.info("Stemcell `#{stemcell_id}' is now deleted")
+        unless images.empty?
+          images.each do |image|
+            with_compute { image.destroy }
+            @logger.info("Stemcell `#{stemcell_id}' is now deleted")
+            end
+        else
+          @logger.info("Stemcell `#{stemcell_id}' not found. Skipping.")
         end
       end
     end
