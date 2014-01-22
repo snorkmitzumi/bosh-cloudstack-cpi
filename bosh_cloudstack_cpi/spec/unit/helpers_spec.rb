@@ -106,7 +106,7 @@ describe Bosh::CloudStackCloud::Helpers do
 
   describe "with_compute" do
     before(:each) do
-      @compute = double("openstack")
+      @compute = double("cloudstack")
     end
 
     it "should raise the exception if not a rescued exception" do

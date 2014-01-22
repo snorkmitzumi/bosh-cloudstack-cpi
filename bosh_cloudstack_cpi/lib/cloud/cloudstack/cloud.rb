@@ -898,7 +898,7 @@ module Bosh::CloudStackCloud
 
     rescue HTTPClient::TimeoutError
       cloud_error("Timed out reading instance metadata, " \
-                  "please make sure CPI is running on EC2 instance")
+                  "please make sure CPI is running on Cloudstack instance")
     end
 
     def volume_device_name(device_id)

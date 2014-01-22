@@ -19,7 +19,7 @@ module Bosh::CloudStackCloud
     # Configures CloudStack dynamic network. Right now it's a no-op,
     # as dynamic networks are completely managed by CloudStack
     #
-    # @param [Fog::Compute::CloudStack] openstack Fog CloudStack Compute client
+    # @param [Fog::Compute::CloudStack] cloudstack Fog CloudStack Compute client
     # @param [Fog::Compute::CloudStack::Server] server CloudStack server to
     #   configure
     def configure(cloudstack, server)
