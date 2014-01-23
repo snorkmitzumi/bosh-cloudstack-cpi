@@ -73,6 +73,13 @@ describe Bosh::CloudStackCloud::Cloud do
     }.to raise_error(Bosh::Clouds::CloudError, /No disk offering found for/)
   end
 
+  it "disk size needs to be an integer" do
+    expect {
+      cloud = mock_cloud
+      cloud.create_disk(10 * 1024 + 0.5)
+    }.to raise_error(ArgumentError, /Disk size needs to be an integer/)
+  end
+
   it "puts disk in the same AZ as a server" do
     unique_name = SecureRandom.uuid
     disk_params = {
