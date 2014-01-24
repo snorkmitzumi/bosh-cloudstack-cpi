@@ -4,6 +4,7 @@ require "spec_helper"
 
 describe Bosh::CloudStackCloud::TagManager do
   let(:server) { double('server', :id => 'i-foobar', :class => Fog::Compute::Cloudstack::Server) }
+  let(:snapshot) { double('snapshot', :id => 'i-foobar', :class => Fog::Compute::Cloudstack::Snapshot) }
   let(:metadata) { double("metadata") }
 
   before :each do
@@ -24,6 +25,19 @@ describe Bosh::CloudStackCloud::TagManager do
     server.should_receive(:service).and_return(compute)
 
     Bosh::CloudStackCloud::TagManager.tag(server, 'x'*256, 'y'*256)
+  end
+
+  it 'should test snapshot TagManager' do
+    compute = double("compute")
+    compute.should_receive(:create_tags).with({
+      "tags[0].key" => 'snap-key',
+      "tags[0].value" => 'snap-value',
+      "resourceids" => "i-foobar",
+      "resourcetype" => "snapshot",
+    })
+    snapshot.should_receive(:service).and_return(compute)
+
+    Bosh::CloudStackCloud::TagManager.tag(snapshot, 'snap-key', 'snap-value')
   end
 
   it 'should raise error if unsupported taggable given' do
