@@ -8,7 +8,10 @@ describe Bosh::CloudStackCloud::Cloud do
 
   describe "Volume based flow" do
     let(:creator) { double(Bosh::CloudStackCloud::StemcellCreator) }
+    let(:httpresponse) { double(HTTP::Message) }
+    let(:httpclient) { double(HTTPClient) }
 
+    before { HTTPClient.stub(:new => httpclient) }
     before { Bosh::CloudStackCloud::StemcellCreator.stub(:new => creator) }
 
     context "real stemcell" do
@@ -25,14 +28,18 @@ describe Bosh::CloudStackCloud::Cloud do
       let(:stemcell) { double("stemcell", :id => "ami-xxxxxxxx", :zone_name => 'foobar-1a', :zone_id => 'foobar-1a') }
       let(:server) { double("server", :id => "s-xxxxxxxx") }
 
-      it "should create a stemcell" do
+      it "should create a stemcell and test CPI private method current_vm_id" do
         cloud = mock_cloud do |compute|
           compute.volumes.stub(:get).with("vol-xxxxxxxx").and_return(volume)
           compute.volumes.stub(:find).and_return(nil)
           compute.servers.stub(:get).with("s-xxxxxxxx").and_return(server)
         end
 
-        cloud.should_receive(:current_vm_id).twice.and_return("s-xxxxxxxx")
+        cloud.should_receive(:metadata_server).and_return("1.2.3.4")
+        httpclient.should_receive(:connect_timeout=).with(5)
+        httpclient.should_receive(:get).with("http://1.2.3.4/latest/instance-id").and_return(httpresponse)
+        httpresponse.should_receive(:status).and_return(200)
+        httpresponse.should_receive(:body).and_return("s-xxxxxxxx")
 
         cloud.should_receive(:create_disk).with(10240, "s-xxxxxxxx").and_return("vol-xxxxxxxx")
         cloud.should_receive(:attach_volume).with(server, volume).and_return("/dev/sdh")
