@@ -74,5 +74,16 @@ describe Bosh::CloudStackCloud::Cloud do
         cloud.find_volume_device("/dev/sdf").should == "/dev/vdf"
       end
     end
+
+      it "should raise an error if device name not found" do
+        cloud = mock_cloud
+
+        File.stub(:blockdev?).with("/dev/sdf").and_return(false)
+        File.stub(:blockdev?).with("/dev/vdf").and_return(false)
+
+        expect {
+          cloud.find_volume_device("/dev/sdf")
+        }.to raise_error Bosh::Clouds::CloudError
+      end
   end
 end
