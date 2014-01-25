@@ -102,6 +102,19 @@ describe Bosh::CloudStackCloud::Helpers do
 
       @cloud.wait_resource(resource, :deleted, :status, true)
     end
+
+    it "should raise an error if resource's state == 2" do
+      resource = double("resource")
+      resource.stub(:id).and_return("foobar")
+      resource.stub(:reload).and_return(@cloud)
+      resource.stub(:status).and_return(:"2")
+      resource.stub(:instance_of?).and_return(true)
+      @cloud.stub(:sleep)
+
+      expect {
+        @cloud.wait_resource(resource, :stop, :status, false)
+      }.to raise_error Bosh::Clouds::CloudError, /state is 2/
+    end
   end
 
   describe "with_compute" do
