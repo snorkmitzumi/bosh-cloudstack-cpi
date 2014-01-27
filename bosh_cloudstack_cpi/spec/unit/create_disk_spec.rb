@@ -33,6 +33,29 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud.create_disk(39 * 1024).should == "v-foobar"
   end
 
+  it "creates an CloudStack volume with server_id" do
+    server = double("server", :zone_id => "not-default-zone")
+    unique_name = SecureRandom.uuid
+    disk_params = {
+        :name => "volume-#{unique_name}",
+        :zone_id => "not-default-zone",
+        :disk_offering_id => disk_offerings[2].id,
+    }
+    volume = double("volume", :id => "v-foobar")
+
+    cloud = mock_cloud do |compute|
+      compute.volumes.should_receive(:create).
+          with(disk_params).and_return(volume)
+      compute.servers.should_receive(:get).with("i-test").and_return(server)
+      compute.stub(:disk_offerings).and_return(disk_offerings)
+    end
+
+    cloud.should_receive(:generate_unique_name).and_return(unique_name)
+    cloud.should_receive(:wait_resource).with(volume, :allocated)
+
+    cloud.create_disk(39 * 1024, "i-test").should == "v-foobar"
+  end
+
   it "choose proper disk offering" do
     unique_name = SecureRandom.uuid
     disk_params = {
@@ -71,6 +94,13 @@ describe Bosh::CloudStackCloud::Cloud do
     end
     cloud.create_disk(100 * 1024)
     }.to raise_error(Bosh::Clouds::CloudError, /No disk offering found for/)
+  end
+
+  it "disk size needs to be an integer" do
+    expect {
+      cloud = mock_cloud
+      cloud.create_disk(10 * 1024 + 0.5)
+    }.to raise_error(ArgumentError, /Disk size needs to be an integer/)
   end
 
   it "puts disk in the same AZ as a server" do

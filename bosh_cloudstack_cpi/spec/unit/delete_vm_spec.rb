@@ -29,6 +29,9 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud = mock_cloud do |compute|
       compute.servers.should_receive(:get).with("i-no_server").and_return(nil)
     end
+
+    @server.should_not_receive(:destroy)
+
     cloud.delete_vm("i-no_server")
   end
 

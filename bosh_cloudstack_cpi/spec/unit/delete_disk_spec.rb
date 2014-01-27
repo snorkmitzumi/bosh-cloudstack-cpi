@@ -22,8 +22,8 @@ describe Bosh::CloudStackCloud::Cloud do
   it "doesn't delete an CloudStack volume unless it's state is `Ready'" do
     volume = double("volume", :id => "v-foobar")
 
-    cloud = mock_cloud do |openstack|
-      openstack.volumes.should_receive(:get).with("v-foobar").and_return(volume)
+    cloud = mock_cloud do |compute|
+      compute.volumes.should_receive(:get).with("v-foobar").and_return(volume)
     end
 
     volume.should_receive(:state).and_return('Busy')

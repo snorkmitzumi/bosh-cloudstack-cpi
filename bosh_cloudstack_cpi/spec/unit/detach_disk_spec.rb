@@ -48,7 +48,7 @@ describe Bosh::CloudStackCloud::Cloud do
     cloud.detach_disk("i-test", "v-foobar")
   end
 
-  it "bypasses the detaching process when volume is not attached to a server" do
+  it "bypasses the detaching process when volume is not attached to a server but registered to server" do
     server = double("server", :id => "i-test", :name => "i-test")
     volume = double("volume", :id => "v-barfoo", :server_id => nil)
     job = generate_job
@@ -85,5 +85,43 @@ describe Bosh::CloudStackCloud::Cloud do
 
     cloud.detach_disk("i-test", "v-barfoo")
   end
+  
+  it "bypasses the detaching process when volume is not attached to a server and not registered to server" do
+    server = double("server", :id => "i-test", :name => "i-test")
+    volume = double("volume", :id => "v-barfoo", :server_id => nil)
+    job = generate_job
 
+    cloud = mock_cloud do |compute|
+      compute.servers.should_receive(:get).with("i-test").and_return(server)
+      compute.volumes.should_receive(:get).with("v-bar").and_return(volume)
+    end
+
+    volume.should_receive(:reload)
+    volume.should_not_receive(:detach)
+
+    old_settings = {
+      "foo" => "bar",
+      "disks" => {
+        "persistent" => {
+          "v-foobar" => "/dev/vdc",
+          "v-barfoo" => "/dev/vdd"
+        }
+      }
+    }
+
+    new_settings ={
+      "foo" => "bar",
+      "disks" => {
+        "persistent" => {
+          "v-foobar" => "/dev/vdc",
+          "v-barfoo" => "/dev/vdd"
+        }
+      }
+    }
+
+    @registry.should_receive(:read_settings).with("i-test").and_return(old_settings)
+    @registry.should_receive(:update_settings).with("i-test", new_settings)
+
+    cloud.detach_disk("i-test", "v-bar")
+  end
 end

@@ -129,6 +129,12 @@ def generate_job
   double("job", :id => SecureRandom.uuid)
 end
 
+def cost_time_spec
+  {
+      :duration => 10
+  }
+end
+
 RSpec.configure do |config|
   config.before(:each) { Bosh::Clouds::Config.stub(:logger).and_return(double.as_null_object)  }
 end

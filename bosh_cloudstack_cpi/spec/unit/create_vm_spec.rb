@@ -25,7 +25,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
     }
   end
 
-  def server_params(unique_name, security_groups = [], nics = [], nameserver = nil, zone_id = "foobar-1a")
+  def server_params(unique_name, security_groups = [], nameserver = nil, zone_id = "foobar-1a")
     params = {
       :name => "vm-#{unique_name}",
       :template_id => "sc-id",
@@ -67,7 +67,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
   it "creates an CloudStack server and polls until it's ready" do
     cloud = mock_cloud do |compute|
       compute.servers.should_receive(:create).
-          with(server_params(unique_name, security_groups, [])).and_return(server)
+          with(server_params(unique_name, security_groups)).and_return(server)
       compute.should_receive(:security_groups).and_return(security_groups)
       compute.images.should_receive(:find).and_return(image)
       compute.flavors.should_receive(:find).and_return(flavor)
@@ -93,7 +93,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
 
     cloud = mock_cloud do |compute|
       compute.servers.should_receive(:create).
-          with(server_params(unique_name, security_groups, [], "1.2.3.4")).and_return(server)
+          with(server_params(unique_name, security_groups, "1.2.3.4")).and_return(server)
       compute.should_receive(:security_groups).and_return(security_groups)
       compute.images.should_receive(:find).and_return(image)
       compute.flavors.should_receive(:find).and_return(flavor)
@@ -121,7 +121,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
 
     cloud = mock_cloud do |compute|
       compute.servers.should_receive(:create).
-          with(server_params(unique_name, security_groups, [])).and_return(server)
+          with(server_params(unique_name, security_groups)).and_return(server)
       compute.should_receive(:security_groups).and_return(security_groups)
       compute.images.should_receive(:find).and_return(image)
       compute.flavors.should_receive(:find).and_return(flavor)
@@ -148,7 +148,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
     }
 
     cloud = mock_cloud do |compute|
-      server_params = server_params(unique_name, [], [])
+      server_params = server_params(unique_name, [])
       server_params[:network_ids] = ["netid-2"]
       compute.servers.should_receive(:create).
           with(server_params).and_return(server)
@@ -202,7 +202,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
 
     cloud = mock_cloud do |compute|
       compute.servers.should_receive(:create).
-          with(server_params(unique_name, nil, [], nil, "foobar-2a")).and_return(server)
+          with(server_params(unique_name, nil, nil, "foobar-2a")).and_return(server)
       compute.should_receive(:security_groups).and_return(security_groups)
       compute.images.should_receive(:find).and_return(image)
       compute.flavors.should_receive(:find).and_return(flavor)
@@ -239,7 +239,7 @@ describe Bosh::CloudStackCloud::Cloud, "create_vm" do
     network_spec["cloud_properties"] = {}
 
     cloud = mock_cloud do |compute|
-      params = server_params(unique_name, [], [], nil, "foobar-2a")
+      params = server_params(unique_name, [], nil, "foobar-2a")
       params.delete(:security_groups)
       compute.servers.should_receive(:create).
           with(params).and_return(server)
