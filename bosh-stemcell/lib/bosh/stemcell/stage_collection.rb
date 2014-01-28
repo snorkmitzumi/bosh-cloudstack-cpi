@@ -199,7 +199,6 @@ module Bosh::Stemcell
         :bosh_clean,
         :bosh_harden,
         :bosh_harden_ssh,
-        :bosh_dpkg_list,
         # Image/bootloader
         :image_create,
         :image_install_grub,
