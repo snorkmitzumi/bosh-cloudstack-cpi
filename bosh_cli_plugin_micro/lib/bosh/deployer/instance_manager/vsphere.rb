@@ -24,6 +24,26 @@ module Bosh::Deployer
         properties['vcenter']['address'] ||= properties['vcenter']['host']
       end
 
+      def check_dependencies
+        if Bosh::Common.which(%w[genisoimage mkisofs]).nil?
+          err("either of 'genisoimage' or 'mkisofs' commands must be present")
+        end
+      end
+
+      def start
+      end
+
+      def stop
+      end
+
+      def discover_bosh_ip
+        bosh_ip
+      end
+
+      def service_ip
+        bosh_ip
+      end
+
       # @return [Integer] size in MiB
       def disk_size(cid)
         disk_model.first(uuid: cid).size
@@ -33,10 +53,11 @@ module Bosh::Deployer
         Config.resources['persistent_disk'] != disk_size(state.disk_cid)
       end
 
-      def check_dependencies
-        if Bosh::Common.which(%w[genisoimage mkisofs]).nil?
-          err("either of 'genisoimage' or 'mkisofs' commands must be present")
-        end
+      private
+
+      FakeRegistry = Struct.new(:port)
+      def registry
+        @registry ||= FakeRegistry.new(nil)
       end
     end
   end

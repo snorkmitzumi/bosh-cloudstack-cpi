@@ -3,9 +3,14 @@
 module Bosh::Deployer
   class InstanceManager
     class Vcloud < InstanceManager
+
       def remote_tunnel(port)
         # VCloud / vsphere does not use bosh-registry so no remote_tunnel
         # to bosh-registry is required
+      end
+
+      def disk_model
+        nil
       end
 
       def update_spec(spec)
@@ -18,6 +23,26 @@ module Bosh::Deployer
         properties['vcd']['address'] ||= properties['vcd']['url']
       end
 
+      def check_dependencies
+        if Bosh::Common.which(%w[genisoimage mkisofs]).nil?
+          err("either of 'genisoimage' or 'mkisofs' commands must be present")
+        end
+      end
+
+      def start
+      end
+
+      def stop
+      end
+
+      def discover_bosh_ip
+        bosh_ip
+      end
+
+      def service_ip
+        bosh_ip
+      end
+
       # @return [Integer] size in MiB
       def disk_size(cid)
         cloud.get_disk_size_mb(cid)
@@ -27,10 +52,11 @@ module Bosh::Deployer
         Config.resources['persistent_disk'] != disk_size(state.disk_cid)
       end
 
-      def check_dependencies
-        if Bosh::Common.which(%w[genisoimage mkisofs]).nil?
-          err("either of 'genisoimage' or 'mkisofs' commands must be present")
-        end
+      private
+
+      FakeRegistry = Struct.new(:port)
+      def registry
+        @registry ||= FakeRegistry.new(nil)
       end
     end
   end

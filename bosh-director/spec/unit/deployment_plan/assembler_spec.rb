@@ -69,17 +69,49 @@ module Bosh::Director
         assembler.bind_stemcells
       end
 
-      it 'should bind templates' do
-        r1 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
-        r2 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
+      describe '#bind_templates' do
+        it 'should bind templates' do
+          r1 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
+          r2 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
 
-        deployment_plan.should_receive(:releases).and_return([r1, r2])
+          deployment_plan.should_receive(:releases).and_return([r1, r2])
+          allow(deployment_plan).to receive(:jobs).and_return([])
 
-        r1.should_receive(:bind_templates)
-        r2.should_receive(:bind_templates)
+          r1.should_receive(:bind_templates)
+          r2.should_receive(:bind_templates)
 
-        assembler.bind_templates
+          assembler.bind_templates
+        end
+
+        it 'validates the jobs' do
+          j1 = instance_double('Bosh::Director::DeploymentPlan::Job')
+          j2 = instance_double('Bosh::Director::DeploymentPlan::Job')
+
+          expect(deployment_plan).to receive(:jobs).and_return([j1, j2])
+          allow(deployment_plan).to receive(:releases).and_return([])
+
+          expect(j1).to receive(:validate_package_names_do_not_collide!).once
+          expect(j2).to receive(:validate_package_names_do_not_collide!).once
+
+          assembler.bind_templates
+        end
+
+        context 'when the job validation fails' do
+          it "bubbles up the exception" do
+            j1 = instance_double('Bosh::Director::DeploymentPlan::Job')
+            j2 = instance_double('Bosh::Director::DeploymentPlan::Job')
+
+            allow(deployment_plan).to receive(:jobs).and_return([j1, j2])
+            allow(deployment_plan).to receive(:releases).and_return([])
+
+            expect(j1).to receive(:validate_package_names_do_not_collide!).once
+            expect(j2).to receive(:validate_package_names_do_not_collide!).once.and_raise('Unable to deploy manifest')
+
+            expect { assembler.bind_templates }.to raise_error('Unable to deploy manifest')
+          end
+        end
       end
+
 
       it 'should bind unallocated VMs' do
         instances = (1..4).map { |i| instance_double('Bosh::Director::DeploymentPlan::Instance') }
@@ -294,15 +326,139 @@ module Bosh::Director
           state = { 'state' => 'baz' }
 
           vm = Models::Vm.make(:agent_id => 'agent-1')
-          client = double(:AgentClient)
-          AgentClient.stub(:with_defaults).with('agent-1').and_return(client)
+          client = double('AgentClient')
+          AgentClient.should_receive(:with_defaults).with('agent-1').and_return(client)
 
           client.should_receive(:get_state).and_return(state)
           assembler.should_receive(:verify_state).with(vm, state)
           assembler.should_receive(:migrate_legacy_state).
             with(vm, state)
 
-          assembler.get_state(vm)
+          assembler.get_state(vm).should eq(state)
+        end
+
+        context 'when the returned state contains top level "release" key' do
+          let(:agent_client) { double('AgentClient') }
+          let(:vm) { Models::Vm.make(:agent_id => 'agent-1') }
+          before do
+            allow(AgentClient).to receive(:with_defaults).with('agent-1').and_return(agent_client)
+          end
+
+          it 'prunes the legacy "release" data to avoid unnecessary update' do
+            legacy_state = { 'release' => 'cf', 'other' => 'data', 'job' => {} }
+            final_state = { 'other' => 'data', 'job' => {} }
+            agent_client.stub(:get_state).and_return(legacy_state)
+
+            assembler.stub(:verify_state).with(vm, legacy_state)
+            assembler.stub(:migrate_legacy_state).with(vm, legacy_state)
+
+            assembler.get_state(vm).should eq(final_state)
+          end
+
+          context 'and the returned state contains a job level release' do
+            it 'prunes the legacy "release" in job section so as to avoid unnecessary update' do
+              legacy_state = {
+                'release' => 'cf',
+                'other' => 'data',
+                'job' => {
+                  'release' => 'sql-release',
+                  'more' => 'data',
+                },
+              }
+              final_state = {
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              agent_client.stub(:get_state).and_return(legacy_state)
+
+              assembler.stub(:verify_state).with(vm, legacy_state)
+              assembler.stub(:migrate_legacy_state).with(vm, legacy_state)
+
+              assembler.get_state(vm).should eq(final_state)
+            end
+          end
+
+          context 'and the returned state does not contain a job level release' do
+            it 'returns the job section as-is' do
+              legacy_state = {
+                'release' => 'cf',
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              final_state = {
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              agent_client.stub(:get_state).and_return(legacy_state)
+
+              assembler.stub(:verify_state).with(vm, legacy_state)
+              assembler.stub(:migrate_legacy_state).with(vm, legacy_state)
+
+              assembler.get_state(vm).should eq(final_state)
+            end
+          end
+        end
+
+        context 'when the returned state does not contain top level "release" key' do
+          let(:agent_client) { double('AgentClient') }
+          let(:vm) { Models::Vm.make(:agent_id => 'agent-1') }
+          before do
+            allow(AgentClient).to receive(:with_defaults).with('agent-1').and_return(agent_client)
+          end
+
+          context 'and the returned state contains a job level release' do
+            it 'prunes the legacy "release" in job section so as to avoid unnecessary update' do
+              legacy_state = {
+                'other' => 'data',
+                'job' => {
+                  'release' => 'sql-release',
+                  'more' => 'data',
+                },
+              }
+              final_state = {
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              agent_client.stub(:get_state).and_return(legacy_state)
+
+              assembler.stub(:verify_state).with(vm, legacy_state)
+              assembler.stub(:migrate_legacy_state).with(vm, legacy_state)
+
+              assembler.get_state(vm).should eq(final_state)
+            end
+          end
+
+          context 'and the returned state does not contain a job level release' do
+            it 'returns the job section as-is' do
+              legacy_state = {
+                'release' => 'cf',
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              final_state = {
+                'other' => 'data',
+                'job' => {
+                  'more' => 'data',
+                },
+              }
+              agent_client.stub(:get_state).and_return(legacy_state)
+
+              assembler.stub(:verify_state).with(vm, legacy_state)
+              assembler.stub(:migrate_legacy_state).with(vm, legacy_state)
+
+              assembler.get_state(vm).should eq(final_state)
+            end
+          end
         end
       end
 
@@ -555,7 +711,6 @@ module Bosh::Director
           expect(agent).to receive(:apply).with(hash_including(
             'job' => 'fake-job-spec',
             'index' => 'fake-index',
-            'release' => 'fake-release-spec',
           ))
           assembler.bind_instance_vm(instance)
         end

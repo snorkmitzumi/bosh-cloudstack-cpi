@@ -2,6 +2,11 @@ require 'yajl'
 require 'bosh/dev/sandbox/main'
 
 module IntegrationExampleGroup
+  def target_and_login
+    run_bosh("target http://localhost:#{current_sandbox.director_port}")
+    run_bosh('login admin admin')
+  end
+
   def deploy_simple(options={})
     run_bosh("target http://localhost:#{current_sandbox.director_port}")
     run_bosh('login admin admin')
@@ -15,14 +20,17 @@ module IntegrationExampleGroup
 
   def deploy_simple_manifest(options={})
     manifest_hash = options.fetch(:manifest_hash, Bosh::Spec::Deployments.simple_manifest)
-    deployment_manifest = yaml_file('simple', manifest_hash)
-    run_bosh("deployment #{deployment_manifest.path}")
+
+    # Hold reference to the tempfile so that it stays around
+    # until the end of tests or next deploy.
+    @deployment_manifest = yaml_file('simple', manifest_hash)
+    run_bosh("deployment #{@deployment_manifest.path}")
 
     no_track = options.fetch(:no_track, false)
-    deploy_result = run_bosh("#{no_track ? '--no-track ' : ''}deploy")
+    output = run_bosh("#{no_track ? '--no-track ' : ''}deploy")
     expect($?).to be_success
 
-    deploy_result
+    output
   end
 
   def run_bosh(cmd, options = {})

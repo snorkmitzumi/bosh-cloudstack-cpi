@@ -40,7 +40,7 @@ func TestAwsGetSettingsWhenADnsIsNotProvided(t *testing.T) {
 
 	expectedUserData := fmt.Sprintf(`{"registry":{"endpoint":"%s"}}`, registryTs.URL)
 
-	metadataTs := spinUpAwsMetadaServer(t, expectedUserData)
+	metadataTs := spinUpAwsMetadataServer(t, expectedUserData)
 	defer metadataTs.Close()
 
 	aws := newAwsInfrastructure(metadataTs.URL, &FakeDnsResolver{})
@@ -69,7 +69,7 @@ func TestAwsGetSettingsWhenDnsServersAreProvided(t *testing.T) {
 		}`,
 		registryTsPort)
 
-	metadataTs := spinUpAwsMetadaServer(t, expectedUserData)
+	metadataTs := spinUpAwsMetadataServer(t, expectedUserData)
 	defer metadataTs.Close()
 
 	aws := newAwsInfrastructure(metadataTs.URL, fakeDnsResolver)
@@ -196,7 +196,7 @@ func spinUpAwsRegistry(t *testing.T) (ts *httptest.Server, port string, expected
 				"access_key_id":     "optional access key id",
 				"secret_access_key": "optional secret access key",
 			},
-			Type: boshsettings.BlobstoreTypeS3,
+			Type: "s3",
 		},
 		Disks: boshsettings.Disks{
 			Ephemeral:  "/dev/sdb",
@@ -243,7 +243,7 @@ func spinUpAwsRegistry(t *testing.T) (ts *httptest.Server, port string, expected
 	return
 }
 
-func spinUpAwsMetadaServer(t *testing.T, userData string) (ts *httptest.Server) {
+func spinUpAwsMetadataServer(t *testing.T, userData string) (ts *httptest.Server) {
 	instanceId := "123-456-789"
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

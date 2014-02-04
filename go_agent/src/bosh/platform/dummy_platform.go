@@ -109,11 +109,19 @@ func (p dummyPlatform) SetupEphemeralDiskWithPath(devicePath string) (err error)
 	return
 }
 
+func (p dummyPlatform) SetupTmpDir() (err error) {
+	return
+}
+
 func (p dummyPlatform) MountPersistentDisk(devicePath, mountPoint string) (err error) {
 	return
 }
 
 func (p dummyPlatform) UnmountPersistentDisk(devicePath string) (didUnmount bool, err error) {
+	return
+}
+
+func (p dummyPlatform) GetFileContentsFromCDROM(filePath string) (contents []byte, err error) {
 	return
 }
 

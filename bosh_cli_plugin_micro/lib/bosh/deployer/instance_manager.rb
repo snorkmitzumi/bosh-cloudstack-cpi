@@ -6,7 +6,6 @@ require 'bosh/deployer/ui_messager'
 
 module Bosh::Deployer
   class InstanceManager
-
     CONNECTION_EXCEPTIONS = [
       Bosh::Agent::Error,
       Errno::ECONNREFUSED,
@@ -15,14 +14,16 @@ module Bosh::Deployer
       HTTPClient::ConnectTimeoutError
     ]
 
-    extend Helpers
-    include Helpers
+    DEPLOYMENTS_FILE = 'bosh-deployments.yml'
 
     attr_reader :state
     attr_accessor :renderer
 
     def self.create(config)
-      plugin_name = cloud_plugin(config)
+      err 'No cloud properties defined' if config['cloud'].nil?
+      err 'No cloud plugin defined' if config['cloud']['plugin'].nil?
+
+      plugin_name = config['cloud']['plugin']
 
       begin
         require "bosh/deployer/instance_manager/#{plugin_name}"
@@ -79,12 +80,6 @@ module Bosh::Deployer
       result = yield
       renderer.update(:finished, task)
       result
-    end
-
-    def start
-    end
-
-    def stop
     end
 
     def with_lifecycle
@@ -204,7 +199,7 @@ module Bosh::Deployer
 
     # rubocop:disable MethodLength
     def create_stemcell(stemcell_tgz)
-      unless is_tgz?(stemcell_tgz)
+      unless File.extname(stemcell_tgz) == '.tgz'
         step 'Using existing stemcell' do
         end
 
@@ -232,7 +227,7 @@ module Bosh::Deployer
     rescue => e
       logger.err("create stemcell failed: #{e.message}:\n#{e.backtrace.join("\n")}")
       # make sure we clean up the stemcell if something goes wrong
-      delete_stemcell if is_tgz?(stemcell_tgz) && state.stemcell_cid
+      delete_stemcell if File.extname(stemcell_tgz) == '.tgz' && state.stemcell_cid
       raise e
     end
     # rubocop:enable MethodLength
@@ -386,18 +381,6 @@ module Bosh::Deployer
       agent_start
     end
 
-    def discover_bosh_ip
-      bosh_ip
-    end
-
-    def service_ip
-      bosh_ip
-    end
-
-    def check_dependencies
-      # nothing to check, move on...
-    end
-
     private
 
     def bosh_ip
@@ -438,7 +421,7 @@ module Bosh::Deployer
     end
 
     def wait_until_agent_ready
-      remote_tunnel(@registry_port)
+      remote_tunnel(registry.port)
       wait_until_ready('agent') { agent.ping }
     end
 

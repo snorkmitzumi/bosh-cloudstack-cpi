@@ -121,7 +121,6 @@ module Bosh::Director
         first_template = @templates[0]
         result = {
           "name" => @name,
-          "release" => @release.name,
           "templates" => [],
           # --- Legacy ---
           "template" => first_template.name,
@@ -201,6 +200,32 @@ module Bosh::Director
       # property definitions in DB).
       def bind_properties
         @properties = filter_properties(@all_properties)
+      end
+
+      def validate_package_names_do_not_collide!
+        releases_by_package_names = templates
+          .reduce([]) { |memo, t| memo + t.model.package_names.product([t.release]) }
+          .reduce({}) { |memo, package_name_and_release_version|
+            package_name = package_name_and_release_version.first
+            release_version = package_name_and_release_version.last
+            memo[package_name] ||= Set.new
+            memo[package_name] << release_version
+            memo
+          }
+
+        releases_by_package_names.each do |package_name, releases|
+          if releases.size > 1
+            release1, release2 = releases.to_a[0..1]
+            offending_template1 = templates.find { |t| t.release == release1 }
+            offending_template2 = templates.find { |t| t.release == release2 }
+
+            raise JobPackageCollision,
+                  "Package name collision detected in job `#{@name}': "\
+                  "template `#{release1.name}/#{offending_template1.name}' depends on package `#{release1.name}/#{package_name}', "\
+                  "template `#{release2.name}/#{offending_template2.name}' depends on `#{release2.name}/#{package_name}'. " +
+                  'BOSH cannot currently collocate two packages with identical names from separate releases.'
+          end
+        end
       end
 
       private

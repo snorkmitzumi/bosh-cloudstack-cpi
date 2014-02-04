@@ -37,6 +37,8 @@ type FakePlatform struct {
 
 	SetupEphemeralDiskWithPathDevicePath string
 
+	SetupTmpDirCalled bool
+
 	MountPersistentDiskDevicePath string
 	MountPersistentDiskMountPoint string
 
@@ -155,6 +157,11 @@ func (p *FakePlatform) SetupEphemeralDiskWithPath(devicePath string) (err error)
 	return
 }
 
+func (p *FakePlatform) SetupTmpDir() (err error) {
+	p.SetupTmpDirCalled = true
+	return
+}
+
 func (p *FakePlatform) MountPersistentDisk(devicePath, mountPoint string) (err error) {
 	p.MountPersistentDiskDevicePath = devicePath
 	p.MountPersistentDiskMountPoint = mountPoint
@@ -164,6 +171,10 @@ func (p *FakePlatform) MountPersistentDisk(devicePath, mountPoint string) (err e
 func (p *FakePlatform) UnmountPersistentDisk(devicePath string) (didUnmount bool, err error) {
 	p.UnmountPersistentDiskDevicePath = devicePath
 	didUnmount = p.UnmountPersistentDiskDidUnmount
+	return
+}
+
+func (p *FakePlatform) GetFileContentsFromCDROM(filePath string) (contents []byte, err error) {
 	return
 }
 

@@ -71,6 +71,33 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
           "Job `fake-job-name' references an unknown release `unknown-release-name'",
         )
       end
+
+      context 'when there is no job-level release defined' do
+        before { job_spec.delete('release') }
+
+        context 'when the deployment has zero releases'
+
+        context 'when the deployment has exactly one release' do
+          it "picks the deployment's release" do
+            deployment_release = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
+            allow(deployment_plan).to receive(:releases).and_return([deployment_release])
+
+            job = parser.parse(job_spec)
+            expect(job.release).to eq(deployment_release)
+          end
+        end
+
+        context 'when the deployment has more than one release' do
+          it "does not pick a release" do
+            job_spec.delete('release')
+
+            allow(deployment_plan).to receive(:releases).and_return([instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion'), instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')])
+
+            job = parser.parse(job_spec)
+            expect(job.release).to be_nil
+          end
+        end
+      end
     end
 
     describe 'template key' do
@@ -201,7 +228,7 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
                   parser.parse(job_spec)
                 }.to raise_error(
                   Bosh::Director::JobMissingRelease,
-                  "Cannot tell what release job `fake-job-name' supposed to use, please reference an existing release",
+                  "Cannot tell what release template `fake-template-name' (job `fake-job-name') is supposed to use, please explicitly specify one",
                 )
               end
             end
@@ -229,7 +256,7 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
                   parser.parse(job_spec)
                 }.to raise_error(
                   Bosh::Director::JobMissingRelease,
-                  "Cannot tell what release job `fake-job-name' supposed to use, please reference an existing release",
+                  "Cannot tell what release template `fake-template-name' (job `fake-job-name') is supposed to use, please explicitly specify one",
                 )
               end
             end
@@ -288,51 +315,43 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
               parser.parse(job_spec)
             }.to raise_error(
               Bosh::Director::JobInvalidTemplates,
-              "Job `fake-job-name' templates must not have repeating names."
+              "Colocated job template `fake-template-name1' has the same name in multiple releases. " +
+              "BOSH cannot currently colocate two job templates with identical names from separate releases.",
             )
           end
         end
 
         context 'when multiple hashes reference different releases' do
-          before do
+          it 'uses the correct release for each template' do
             job_spec['templates'] = [
               {'name' => 'fake-template-name1', 'release' => 'fake-template-release1'},
               {'name' => 'fake-template-name2', 'release' => 'fake-template-release2'},
             ]
-          end
 
-          before do # resolve first release and template obj
+            # resolve first release and template obj
             rel_ver1 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
             allow(deployment_plan).to receive(:release)
-              .with('fake-template-release1')
-              .and_return(rel_ver1)
+                                      .with('fake-template-release1')
+                                      .and_return(rel_ver1)
 
             template1 = make_template('fake-template-name1', rel_ver1)
-            allow(rel_ver1).to receive(:use_template_named)
-              .with('fake-template-name1')
-              .and_return(template1)
-          end
+            expect(rel_ver1).to receive(:use_template_named)
+                               .with('fake-template-name1')
+                               .and_return(template1)
 
-          before do # resolve second release and template obj
+            # resolve second release and template obj
             rel_ver2 = instance_double('Bosh::Director::DeploymentPlan::ReleaseVersion')
             allow(deployment_plan).to receive(:release)
-              .with('fake-template-release2')
-              .and_return(rel_ver2)
+                                      .with('fake-template-release2')
+                                      .and_return(rel_ver2)
 
             template2 = make_template('fake-template-name2', rel_ver2)
-            allow(rel_ver2).to receive(:use_template_named)
-              .with('fake-template-name2')
-              .and_return(template2)
-          end
+            expect(rel_ver2).to receive(:use_template_named)
+                               .with('fake-template-name2')
+                               .and_return(template2)
 
-          it 'raises an error because currently multi-release collocation is not supported' do
             job_spec['name'] = 'fake-job-name'
-            expect {
-              parser.parse(job_spec)
-            }.to raise_error(
-              Bosh::Director::JobInvalidTemplates,
-              "Job `fake-job-name' templates must come from the same release."
-            )
+            parser.parse(job_spec)
           end
         end
 
@@ -343,7 +362,7 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
               parser.parse(job_spec)
             }.to raise_error(
               Bosh::Director::ValidationMissingField,
-              %{Required property `name' was not specified in object ({})},
+              "Required property `name' was not specified in object ({})",
             )
           end
         end
@@ -462,7 +481,41 @@ describe Bosh::Director::DeploymentPlan::JobSpecParser do
 
     describe 'update key'
     describe 'instances key'
-    describe 'networks key'
+
+    describe 'networks key' do
+      before { job_spec['networks'].first['static_ips'] = '10.0.0.2 - 10.0.0.4' } # 2,3,4
+
+      context 'when the number of static ips is less than number of instances' do
+        it 'raises an exception because if a job uses static ips all instances must have a static ip' do
+          job_spec['instances'] = 4
+          expect {
+            parser.parse(job_spec)
+          }.to raise_error(
+            Bosh::Director::JobNetworkInstanceIpMismatch,
+            "Job `fake-job-name' has 4 instances but was allocated 3 static IPs",
+          )
+        end
+      end
+
+      context 'when the number of static ips is greater the number of instances' do
+        it 'raises an exception because the extra ip is wasted' do
+          job_spec['instances'] = 2
+          expect {
+            parser.parse(job_spec)
+          }.to raise_error(
+            Bosh::Director::JobNetworkInstanceIpMismatch,
+            "Job `fake-job-name' has 2 instances but was allocated 3 static IPs",
+          )
+        end
+      end
+
+      context 'when number of static ips matches the number of instances' do
+        it 'does not raise an exception' do
+          job_spec['instances'] = 3
+          expect { parser.parse(job_spec) }.to_not raise_error
+        end
+      end
+    end
 
     def make_template(name, rel_ver)
       instance_double(

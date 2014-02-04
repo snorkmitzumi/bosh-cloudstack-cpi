@@ -57,7 +57,7 @@ func (app app) Run(args []string) (err error) {
 		return
 	}
 
-	infProvider := boshinf.NewProvider(app.logger, platform.GetFs(), dirProvider)
+	infProvider := boshinf.NewProvider(app.logger, platform.GetFs(), dirProvider, platform)
 	infrastructure, err := infProvider.Get(opts.InfrastructureName)
 	if err != nil {
 		err = bosherr.WrapError(err, "Getting infrastructure")
@@ -72,7 +72,7 @@ func (app app) Run(args []string) (err error) {
 	}
 
 	mbusHandlerProvider := boshmbus.NewHandlerProvider(settingsService, app.logger)
-	mbusHandler, err := mbusHandlerProvider.Get()
+	mbusHandler, err := mbusHandlerProvider.Get(platform, dirProvider)
 	if err != nil {
 		err = bosherr.WrapError(err, "Getting mbus handler")
 		return
