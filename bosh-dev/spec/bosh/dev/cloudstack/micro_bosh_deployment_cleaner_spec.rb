@@ -6,17 +6,17 @@ require 'bosh/dev/cloudstack/micro_bosh_deployment_manifest'
 
 module Bosh::Dev::Cloudstack
   describe MicroBoshDeploymentCleaner do
+    subject(:cleaner) { described_class.new(manifest) }
+
+    let(:manifest) do
+      instance_double(
+        'Bosh::Dev::Cloudstack::MicroBoshDeploymentManifest',
+        director_name: 'fake-director-name',
+        cpi_options:   'fake-cpi-options',
+      )
+    end
+
     describe '#clean' do
-      subject(:cleaner) { described_class.new(manifest) }
-
-      let(:manifest) do
-        instance_double(
-          'Bosh::Dev::Cloudstack::MicroBoshDeploymentManifest',
-          director_name: 'fake-director-name',
-          cpi_options:   'fake-cpi-options',
-        )
-      end
-
       before { Bosh::CloudStackCloud::Cloud.stub(new: cloud) }
       let(:cloud) { instance_double('Bosh::CloudStackCloud::Cloud') }
 
@@ -48,29 +48,30 @@ module Bosh::Dev::Cloudstack
             id: 'fake-id1',
             service: compute,
           )
-          server_with_non_matching.should_not_receive(:destroy)
+          expect(cleaner).to_not receive(:clean_server).with(server_with_non_matching)
+
           compute.should_receive(:list_tags)
             .with(resourceid: 'fake-id1')
             .and_return(make_tag('director', 'non-matching-tag-value'))
-
           server_with_matching = instance_double(
             'Fog::Compute::Cloudstack::Server',
             name: 'fake-name2',
             id: 'fake-id2',
             service: compute,
           )
-          server_with_matching.should_receive(:destroy)
+          expect(cleaner).to receive(:clean_server).with(server_with_matching)
+
           compute.should_receive(:list_tags)
             .with(resourceid: 'fake-id2')
             .and_return(make_tag('director', 'fake-director-name'))
-
           microbosh_server = instance_double(
             'Fog::Compute::Cloudstack::Server',
             name: 'fake-name3',
             id: 'fake-id3',
             service: compute,
           )
-          microbosh_server.should_receive(:destroy)
+          expect(cleaner).to receive(:clean_server).with(microbosh_server)
+
           compute.should_receive(:list_tags)
             .with(resourceid: 'fake-id3')
             .and_return(make_tag('Name', 'fake-director-name'))
@@ -108,6 +109,10 @@ module Bosh::Dev::Cloudstack
             service: compute,
           )
 
+          compute
+            .stub(:volumes)
+            .and_return([])
+
           %w{fake-id1 fake-id2}.each do |id|
             compute.should_receive(:list_tags)
               .with(resourceid: id)
@@ -144,6 +149,70 @@ module Bosh::Dev::Cloudstack
           servers_collection.stub(all: [])
           cleaner.clean
         end
+      end
+    end
+
+    describe '#clean_server' do
+      let(:compute) do
+        double(
+          'Fog::Compute::Cloudstack::Real',
+          volumes: [volume1, volume2]
+        )
+      end
+
+      let(:server) do
+        instance_double('Fog::Compute::Cloudstack::Server', {
+          id: 'fake-server-id1',
+          destroy: nil,
+          service: compute
+        })
+      end
+
+      let(:volume1) do
+        instance_double('Fog::Compute::Cloudstack::Volume', {
+          type: 'ROOT',
+          server_id: 'fake-server-id1',
+          detach: nil,
+        })
+      end
+
+      let(:volume2) do
+        instance_double('Fog::Compute::Cloudstack::Volume', {
+          type: 'DATA',
+          server_id: 'fake-server-id1',
+          detach: nil,
+        })
+      end
+
+      before { Bosh::Retryable.stub(new: retryable) }
+      let(:retryable) { instance_double('Bosh::Retryable') }
+
+      it 'detaches and destroys any volumes attached to it and then it destroys the server' do
+        retryable.stub(:retryer).and_yield
+
+        expect(volume1).not_to receive(:detach).with(no_args)
+        expect(volume1).not_to receive(:destroy).with(no_args)
+
+        expect(volume2).to receive(:detach).with(no_args).ordered
+        expect(volume2).to receive(:destroy).with(no_args).ordered
+
+        expect(server).to receive(:destroy).with(no_args).ordered
+
+        cleaner.clean_server(server)
+      end
+
+      it 'retries to destroy volume until it succeeds' do
+        expect(Bosh::Retryable).to receive(:new)
+          .with(tries: 10, sleep: 5, on: [Excon::Errors::BadRequest])
+          .and_return(retryable)
+
+        blks = []
+        allow(retryable).to receive(:retryer) { |&blk| blks << blk }
+
+        cleaner.clean_server(server)
+
+        expect(volume2).to receive(:destroy).with(no_args)
+        blks.each(&:call)
       end
     end
   end

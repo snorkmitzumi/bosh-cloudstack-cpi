@@ -27,10 +27,24 @@ module Bosh::Dev::Cloudstack
         @logger.info("Destroying servers #{matching_server_names}")
 
         # calling destroy on a server multiple times is ok
-        servers.each(&:destroy)
+        servers.each { |s| clean_server(s) }
 
         servers.empty?
       end
+    end
+
+    def clean_server(server)
+      server.service.volumes.select { |volume|
+        volume.server_id == server.id &&
+        volume.type != 'ROOT'
+      }.each do |volume|
+        volume.detach
+
+        options = { tries: 10, sleep: 5, on: [Excon::Errors::BadRequest] }
+        Bosh::Retryable.new(options).retryer { volume.destroy }
+      end
+
+      server.destroy
     end
 
     private

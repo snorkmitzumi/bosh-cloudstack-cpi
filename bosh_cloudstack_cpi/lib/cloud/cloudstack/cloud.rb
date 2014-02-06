@@ -53,6 +53,7 @@ module Bosh::CloudStackCloud
         :cloudstack_host => endpoint_uri.host,
         :cloudstack_port => endpoint_uri.port,
         :cloudstack_path => endpoint_uri.path,
+        :connection_options => @fog_properties['connection_options']
       }
       begin
         @compute = Fog::Compute.new(fog_params)

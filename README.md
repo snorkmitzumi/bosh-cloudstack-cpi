@@ -119,8 +119,7 @@ MicroBOSH is provided as a VM image file so-called stemcell. You can create your
 
 
 ```sh
-CANDIDATE_BUILD_NUMBER=3 bundle exec rake release:create_dev_release
-sudo env PATH=$PATH CANDIDATE_BUILD_NUMBER=3 bundle exec rake "local:build_stemcell[cloudstack,ubuntu]"
+sudo env PATH=$PATH CANDIDATE_BUILD_NUMBER=3 bundle exec rake "local:build_stemcell[cloudstack,ubuntu,ruby]"
 # some tests for the generated stemcell currently fail
 ```
 

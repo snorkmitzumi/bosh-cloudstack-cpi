@@ -17,6 +17,7 @@ describe Bosh::CloudStackCloud::Cloud do
           :cloudstack_host => URI.parse(end_point).host,
           :cloudstack_port => URI.parse(end_point).port,
           :cloudstack_path => URI.parse(end_point).path,
+          :connection_options => connection_options
       }
     }
     let(:connection_options) { nil }

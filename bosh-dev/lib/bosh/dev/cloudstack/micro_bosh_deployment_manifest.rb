@@ -72,6 +72,9 @@ module Bosh::Dev::Cloudstack
           'default_zone' => env['BOSH_CLOUDSTACK_DEFAULT_ZONE'],
           'state_timeout' => state_timeout,
           'state_timeout_volume' => state_timeout_volume,
+          'connection_options' => {
+            'connect_timeout' => connection_timeout,
+          }
         },
         'registry' => {
           'endpoint' => 'http://admin:admin@localhost:25889',
@@ -103,6 +106,11 @@ module Bosh::Dev::Cloudstack
 
     def normalize_timeout(value)
       value.to_s.empty? ? 300 : value.to_i
+    end
+
+    def connection_timeout
+      timeout = env['BOSH_CLOUDSTACK_CONNECTION_TIMEOUT']
+      timeout.to_s.empty? ? 60.0 : timeout.to_f
     end
   end
 end

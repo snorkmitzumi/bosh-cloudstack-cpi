@@ -10,12 +10,14 @@ require 'bosh/dev/bat/runner'
 
 module Bosh::Dev::Cloudstack
   class RunnerBuilder
-    def build(bat_helper, net_type)
-      env              = ENV
+    def build(artifacts, net_type)
+      env    = ENV
+      logger = Logger.new(STDOUT)
+
       director_address = Bosh::Dev::Bat::DirectorAddress.from_env(env, 'BOSH_CLOUDSTACK_VIP_DIRECTOR_IP')
       bosh_cli_session = Bosh::Dev::BoshCliSession.new
       director_uuid    = Bosh::Dev::Bat::DirectorUuid.new(bosh_cli_session)
-      stemcell_archive = Bosh::Stemcell::Archive.new(bat_helper.bosh_stemcell_path)
+      stemcell_archive = Bosh::Stemcell::Archive.new(artifacts.bat_stemcell_path)
 
       microbosh_deployment_manifest =
         MicroBoshDeploymentManifest.new(env, net_type)
@@ -28,8 +30,10 @@ module Bosh::Dev::Cloudstack
 
       # rubocop:disable ParameterLists
       Bosh::Dev::Bat::Runner.new(
-        env, bat_helper, director_address, bosh_cli_session, stemcell_archive,
-        microbosh_deployment_manifest, bat_deployment_manifest, microbosh_deployment_cleaner)
+        env, artifacts, director_address,
+        bosh_cli_session, stemcell_archive,
+        microbosh_deployment_manifest, bat_deployment_manifest,
+        microbosh_deployment_cleaner, logger)
       # rubocop:enable ParameterLists
     end
   end
