@@ -37,6 +37,10 @@ module Bat
       @bosh_api.info['cpi'] == 'openstack'
     end
 
+    def cloudstack?
+      @bosh_api.info['cpi'] == 'cloudstack'
+    end
+
     def dns?
       info = @bosh_api.info
       info['features'] && info['features']['dns']
